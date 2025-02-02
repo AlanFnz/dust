@@ -29,10 +29,10 @@ const ParticleCanvas: React.FC = () => {
 
       <div id='gui'></div>
 
-      <button id='restartBtn'>Restart</button>
+      {/*       <button id='restartBtn'>Restart</button>
       <button id='randomizeBtn'>Randomize</button>
       <button id='randomizeColorBtn'>Randomize Color</button>
-      <button id='exportVideoBtn'>Export Video</button>
+      <button id='exportVideoBtn'>Export Video</button> */}
     </div>
   );
 };
