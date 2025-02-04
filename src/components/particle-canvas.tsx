@@ -18,21 +18,25 @@ const ParticleCanvas: React.FC = () => {
   }, []);
 
   return (
-    <div>
+    <div
+      style={{
+        margin: '0 auto',
+        height: '100vh',
+      }}
+    >
       <canvas
         id='canvas'
         ref={canvasRef}
-        style={{ display: 'block', margin: '0 auto' }}
+        style={{
+          margin: '0 auto',
+          height: '100%',
+          width: '100%',
+        }}
       />
 
       <input type='file' id='imageInput' style={{ display: 'none' }} />
 
       <div id='gui'></div>
-
-      {/*       <button id='restartBtn'>Restart</button>
-      <button id='randomizeBtn'>Randomize</button>
-      <button id='randomizeColorBtn'>Randomize Color</button>
-      <button id='exportVideoBtn'>Export Video</button> */}
     </div>
   );
 };
