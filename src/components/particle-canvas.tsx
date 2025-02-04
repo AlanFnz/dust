@@ -3,12 +3,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
-  CONFIG,
   initWebGLApp,
   randomizeInputs,
   togglePlayPause,
   updateBackgroundColor,
 } from '@/lib/webgl/particle-engine';
+import { CONFIG } from '@/lib/config';
 
 const ParticleCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
