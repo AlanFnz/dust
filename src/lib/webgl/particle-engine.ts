@@ -1,7 +1,7 @@
 'use client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { getRandomValue, hexToRGB } from './utils';
+import { hexToRGB, getRandomValue } from './utils';
 import { PARTICLE_CONFIG } from './particle-system/config';
 import { GLState } from './gl-state';
 import { ResourceManager } from './resource-manager';
@@ -12,6 +12,7 @@ export interface Config {
   palette: Record<string, [string, string]>;
   selectedPalette?: string;
 
+  // TODO: implement in ui
   saveImage?: () => void;
   uploadImage?: () => void;
   saveVideo?: () => void;
@@ -39,6 +40,7 @@ export const CONFIG: Config = {
   },
 };
 
+// variables
 let gl: WebGL2RenderingContext;
 let glState: GLState;
 let resourceManager: ResourceManager;
@@ -49,7 +51,6 @@ let isAnimating = false;
 let isPlaying = false;
 let lastTime = 0;
 let isRestarting = false;
-let gui: dat.GUI;
 
 export async function initWebGL(canvas: HTMLCanvasElement): Promise<void> {
   gl = canvas.getContext('webgl2') as WebGL2RenderingContext;
@@ -82,110 +83,11 @@ export async function initWebGL(canvas: HTMLCanvasElement): Promise<void> {
     return;
   }
 
-  initGUI();
   setupEventListeners();
   updateBackgroundColor();
-
-  setTimeout(() => {}, 1000);
 }
 
-async function initGUI(): Promise<void> {
-  if (typeof window === 'undefined') return;
-  const { GUI } = await import('dat.gui');
-
-  gui = new GUI({ autoPlace: false });
-  gui.close();
-
-  (window as any).guiControllers = {};
-
-  chooseRandomPalette();
-
-  (window as any).guiControllers.selectedPalette = gui
-    .add(CONFIG, 'selectedPalette', Object.keys(CONFIG.palette))
-    .name('Color Palette')
-    .onChange((value: string) => {
-      const [bg, particle] = CONFIG.palette[value];
-      CONFIG.backgroundColor = bg;
-      PARTICLE_CONFIG.particleColor = particle;
-      updateConfig('backgroundColor', bg);
-      updateConfig('particleColor', particle);
-
-      (window as any).guiControllers.backgroundColor.updateDisplay();
-      (window as any).guiControllers.particleColor.updateDisplay();
-    });
-
-  (window as any).guiControllers.backgroundColor = gui
-    .addColor(CONFIG, 'backgroundColor')
-    .name('Background')
-    .onChange((v: string) => updateConfig('backgroundColor', v));
-  (window as any).guiControllers.particleColor = gui
-    .addColor(PARTICLE_CONFIG, 'particleColor')
-    .name('Particles')
-    .onChange((v: string) => updateConfig('particleColor', v));
-
-  Object.entries(PARTICLE_CONFIG).forEach(([key, value]) => {
-    if (typeof value === 'object' && value !== null && 'value' in value) {
-      (window as any).guiControllers[key] = gui
-        .add(value, 'value', value.min, value.max, value.step)
-        .name(key.replace(/_/g, ' '))
-        .onChange((v: number) => updateConfig(key, v));
-    }
-  });
-
-  (window as any).guiControllers.noiseType = gui
-    .add(PARTICLE_CONFIG, 'noiseType', ['2D', '3D'])
-    .name('Noise Type')
-    .onChange((value: string) => {
-      updateConfig('noiseType', value);
-    });
-
-  gui.add({ togglePlayPause }, 'togglePlayPause').name('Pause/Play (space)');
-
-  gui
-    .add({ randomize: randomizeInputs }, 'randomize')
-    .name('Randomize Inputs (r)');
-
-  (CONFIG as any)['uploadImage'] = function () {
-    const imageInput = document.getElementById('imageInput');
-    if (imageInput) imageInput.click();
-  };
-  gui.add(CONFIG, 'uploadImage').name('Upload Image (u)');
-  (CONFIG as any)['saveImage'] = function () {
-    saveImage();
-  };
-  gui.add(CONFIG, 'saveImage').name('Save Image (s)');
-  (CONFIG as any)['saveVideo'] = function () {
-    toggleVideoRecord();
-  };
-  gui.add(CONFIG, 'saveVideo').name('Video Export (v)');
-
-  const customContainer = document.getElementById('gui');
-  if (customContainer) {
-    customContainer.appendChild(gui.domElement);
-  }
-}
-
-function chooseRandomPalette(): void {
-  const paletteKeys = Object.keys(CONFIG.palette);
-  const randomPaletteKey =
-    paletteKeys[Math.floor(Math.random() * paletteKeys.length)];
-  const [randomBg, randomParticle] = CONFIG.palette[randomPaletteKey];
-  CONFIG.selectedPalette = randomPaletteKey;
-  CONFIG.backgroundColor = randomBg;
-  PARTICLE_CONFIG.particleColor = randomParticle;
-
-  if ((window as any).guiControllers.selectedPalette) {
-    (window as any).guiControllers.selectedPalette.setValue(randomPaletteKey);
-  }
-  if ((window as any).guiControllers.backgroundColor) {
-    (window as any).guiControllers.backgroundColor.setValue(randomBg);
-  }
-  if ((window as any).guiControllers.particleColor) {
-    (window as any).guiControllers.particleColor.setValue(randomParticle);
-  }
-  updateBackgroundColor();
-}
-
+// event listeners
 function setupEventListeners(): void {
   const imageInput = document.getElementById('imageInput');
   if (imageInput) {
@@ -227,6 +129,7 @@ function setupEventListeners(): void {
       chooseRandomPalette();
     }
   });
+
   window.addEventListener('unload', cleanup);
 }
 
@@ -267,14 +170,64 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-function updateBackgroundColor(): void {
-  const bgColor = CONFIG.backgroundColor;
-  (
-    document.getElementById('canvas') as HTMLCanvasElement
-  ).style.backgroundColor = bgColor;
-  const [r, g, b] = hexToRGB(bgColor);
-  glState.setClearColor(r, g, b, 1.0);
-  glState.clear();
+// canvas resizing
+function calculateDivisibleDimensions(
+  width: number,
+  height: number,
+  maxSize: number
+) {
+  const scale = Math.min(maxSize / width, maxSize / height);
+  let scaledWidth = Math.round(width * scale);
+  let scaledHeight = Math.round(height * scale);
+
+  scaledWidth = Math.floor(scaledWidth / 4) * 4;
+  scaledHeight = Math.floor(scaledHeight / 4) * 4;
+
+  const aspectRatio = width / height;
+  if (scaledWidth / scaledHeight > aspectRatio) {
+    scaledHeight = Math.floor(scaledHeight / 4) * 4;
+    scaledWidth = Math.floor((scaledHeight * aspectRatio) / 4) * 4;
+  } else {
+    scaledWidth = Math.floor(scaledWidth / 4) * 4;
+    scaledHeight = Math.floor(scaledWidth / aspectRatio / 4) * 4;
+  }
+
+  while (scaledWidth > maxSize || scaledHeight > maxSize) {
+    if (scaledWidth > maxSize) {
+      scaledWidth -= 4;
+      scaledHeight = Math.floor(scaledWidth / aspectRatio / 4) * 4;
+    }
+    if (scaledHeight > maxSize) {
+      scaledHeight -= 4;
+      scaledWidth = Math.floor((scaledHeight * aspectRatio) / 4) * 4;
+    }
+  }
+
+  return { width: scaledWidth, height: scaledHeight };
+}
+
+function resizeCanvasToImage(image: HTMLImageElement): {
+  width: number;
+  height: number;
+} {
+  console.log('Original image size: ' + image.width + ', ' + image.height);
+
+  const maxSize = Math.min(window.innerWidth, window.innerHeight) - 40;
+  const dimensions = calculateDivisibleDimensions(
+    image.width,
+    image.height,
+    maxSize
+  );
+
+  const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+  if (canvas) {
+    canvas.width = dimensions.width;
+    canvas.height = dimensions.height;
+    glState.setViewport(0, 0, canvas.width, canvas.height);
+  }
+
+  console.log('New image size: ' + dimensions.width + ', ' + dimensions.height);
+  return dimensions;
 }
 
 function cleanup(): void {
@@ -362,7 +315,7 @@ function animate(currentTime: number): void {
   }
 }
 
-function togglePlayPause(): void {
+export function togglePlayPause(): void {
   if (isRestarting) return;
   isPlaying = !isPlaying;
   if (isPlaying) {
@@ -372,7 +325,15 @@ function togglePlayPause(): void {
   }
 }
 
-function randomizeInputs(): void {
+function toggleVideoRecord(): void {
+  alert('Video recording not implemented yet.');
+}
+
+function saveImage(): void {
+  alert('Image saving not implemented yet.');
+}
+
+export function randomizeInputs(): void {
   if (isRestarting) return;
 
   const paletteKeys = Object.keys(CONFIG.palette);
@@ -385,14 +346,6 @@ function randomizeInputs(): void {
   PARTICLE_CONFIG.particleColor = newParticleColor;
 
   PARTICLE_CONFIG.noiseType = Math.random() < 0.5 ? '2D' : '3D';
-  if (
-    (window as any).guiControllers &&
-    (window as any).guiControllers.noiseType
-  ) {
-    (window as any).guiControllers.noiseType.setValue(
-      PARTICLE_CONFIG.noiseType
-    );
-  }
 
   Object.entries(PARTICLE_CONFIG).forEach(([key, value]) => {
     if (
@@ -406,12 +359,6 @@ function randomizeInputs(): void {
     ) {
       const newValue = getRandomValue(value.min, value.max, value.step);
       (PARTICLE_CONFIG as any)[key].value = newValue;
-      if (
-        (window as any).guiControllers &&
-        (window as any).guiControllers[key]
-      ) {
-        (window as any).guiControllers[key].setValue(newValue);
-      }
     }
   });
 
@@ -424,143 +371,11 @@ function randomizeInputs(): void {
     Math.min(speedRatio + ratioAdjustment, 1);
   (PARTICLE_CONFIG as any)['attractionStrength'].value =
     attractionStrengthValue;
-  if (
-    (window as any).guiControllers &&
-    (window as any).guiControllers['attractionStrength']
-  ) {
-    (window as any).guiControllers['attractionStrength'].setValue(
-      attractionStrengthValue
-    );
-  }
-
-  if (
-    (window as any).guiControllers &&
-    (window as any).guiControllers.selectedPalette
-  ) {
-    CONFIG.selectedPalette = randomPaletteKey;
-    (window as any).guiControllers.selectedPalette.updateDisplay();
-  }
-  if (
-    (window as any).guiControllers &&
-    (window as any).guiControllers.backgroundColor
-  ) {
-    (window as any).guiControllers.backgroundColor.setValue(newBgColor);
-  }
-  if (
-    (window as any).guiControllers &&
-    (window as any).guiControllers.particleColor
-  ) {
-    (window as any).guiControllers.particleColor.setValue(newParticleColor);
-  }
 
   updateBackgroundColor();
   if (currentImage) {
     safeRestartAnimation();
   }
-}
-
-function updateConfig(key: string, value: any): void {
-  if (isRestarting) return;
-
-  const noRestartParams = [
-    'particleOpacity',
-    'particleSpeed',
-    'attractionStrength',
-    'particleSize',
-    'particleColor',
-    'backgroundColor',
-    'IS_PLAYING',
-  ];
-
-  if (key.includes('Color')) {
-    (CONFIG as any)[key] = value;
-  } else if (
-    typeof (CONFIG as any)[key] === 'object' &&
-    (CONFIG as any)[key].hasOwnProperty('value')
-  ) {
-    (CONFIG as any)[key] = {
-      ...(CONFIG as any)[key],
-      value: typeof value === 'object' ? value.value : value,
-    };
-  } else {
-    (CONFIG as any)[key] = value;
-  }
-
-  if (key === 'backgroundColor') {
-    updateBackgroundColor();
-    return;
-  }
-
-  if (!noRestartParams.includes(key) && currentImage) {
-    safeRestartAnimation();
-  }
-}
-
-function calculateDivisibleDimensions(
-  width: number,
-  height: number,
-  maxSize: number
-) {
-  const scale = Math.min(maxSize / width, maxSize / height);
-  let scaledWidth = Math.round(width * scale);
-  let scaledHeight = Math.round(height * scale);
-
-  scaledWidth = Math.floor(scaledWidth / 4) * 4;
-  scaledHeight = Math.floor(scaledHeight / 4) * 4;
-
-  const aspectRatio = width / height;
-  if (scaledWidth / scaledHeight > aspectRatio) {
-    scaledHeight = Math.floor(scaledHeight / 4) * 4;
-    scaledWidth = Math.floor((scaledHeight * aspectRatio) / 4) * 4;
-  } else {
-    scaledWidth = Math.floor(scaledWidth / 4) * 4;
-    scaledHeight = Math.floor(scaledWidth / aspectRatio / 4) * 4;
-  }
-
-  while (scaledWidth > maxSize || scaledHeight > maxSize) {
-    if (scaledWidth > maxSize) {
-      scaledWidth -= 4;
-      scaledHeight = Math.floor(scaledWidth / aspectRatio / 4) * 4;
-    }
-    if (scaledHeight > maxSize) {
-      scaledHeight -= 4;
-      scaledWidth = Math.floor((scaledHeight * aspectRatio) / 4) * 4;
-    }
-  }
-
-  return { width: scaledWidth, height: scaledHeight };
-}
-
-function resizeCanvasToImage(image: HTMLImageElement): {
-  width: number;
-  height: number;
-} {
-  console.log('Original image size: ' + image.width + ', ' + image.height);
-
-  const maxSize = Math.min(window.innerWidth, window.innerHeight) - 40;
-  const dimensions = calculateDivisibleDimensions(
-    image.width,
-    image.height,
-    maxSize
-  );
-
-  const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-  if (canvas) {
-    canvas.width = dimensions.width;
-    canvas.height = dimensions.height;
-    glState.setViewport(0, 0, canvas.width, canvas.height);
-  }
-
-  console.log('New image size: ' + dimensions.width + ', ' + dimensions.height);
-  return dimensions;
-}
-
-function toggleVideoRecord(): void {
-  alert('Video recording not implemented yet.');
-}
-
-function saveImage(): void {
-  alert('Image saving not implemented yet.');
 }
 
 export async function initWebGLApp(canvas: HTMLCanvasElement): Promise<void> {
@@ -571,4 +386,26 @@ export async function initWebGLApp(canvas: HTMLCanvasElement): Promise<void> {
       togglePlayPause();
     }
   });
+}
+
+function chooseRandomPalette(): void {
+  const paletteKeys = Object.keys(CONFIG.palette);
+  const randomPaletteKey =
+    paletteKeys[Math.floor(Math.random() * paletteKeys.length)];
+  const [randomBg, randomParticle] = CONFIG.palette[randomPaletteKey];
+  CONFIG.selectedPalette = randomPaletteKey;
+  CONFIG.backgroundColor = randomBg;
+  PARTICLE_CONFIG.particleColor = randomParticle;
+
+  updateBackgroundColor();
+}
+
+export function updateBackgroundColor(): void {
+  const bgColor = CONFIG.backgroundColor;
+  (
+    document.getElementById('canvas') as HTMLCanvasElement
+  ).style.backgroundColor = bgColor;
+  const [r, g, b] = hexToRGB(bgColor);
+  glState.setClearColor(r, g, b, 1.0);
+  glState.clear();
 }
