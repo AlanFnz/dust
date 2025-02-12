@@ -1,5 +1,7 @@
 'use client';
 
+// TODO: modularize this file
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { hexToRGB, getRandomValue } from './utils';
 import { PARTICLE_CONFIG } from './particle-system/config';
@@ -58,25 +60,23 @@ export async function initWebGL(canvas: HTMLCanvasElement): Promise<void> {
 // event listeners
 function setupEventListeners(): void {
   const imageInput = document.getElementById('imageInput');
-  if (imageInput) {
-    imageInput.addEventListener('change', handleImageUpload);
-  }
+  if (imageInput) imageInput.addEventListener('change', handleImageUpload);
+
   const restartBtn = document.getElementById('restartBtn');
-  if (restartBtn) {
+  if (restartBtn)
     restartBtn.addEventListener('click', () => safeRestartAnimation());
-  }
+
   const randomizeColorBtn = document.getElementById('randomizeColorBtn');
-  if (randomizeColorBtn) {
+  if (randomizeColorBtn)
     randomizeColorBtn.addEventListener('click', () => chooseRandomPalette());
-  }
+
   const randomizeBtn = document.getElementById('randomizeBtn');
-  if (randomizeBtn) {
+  if (randomizeBtn)
     randomizeBtn.addEventListener('click', () => randomizeInputs());
-  }
+
   const exportVideoBtn = document.getElementById('exportVideoBtn');
-  if (exportVideoBtn) {
+  if (exportVideoBtn)
     exportVideoBtn.addEventListener('click', () => toggleVideoRecord());
-  }
 
   document.addEventListener('keydown', (event: KeyboardEvent) => {
     if (event.key === 's') {
@@ -90,9 +90,6 @@ function setupEventListeners(): void {
       safeRestartAnimation();
     } else if (event.key === 'r') {
       randomizeInputs();
-    } else if (event.key === 'u') {
-      const imageInput = document.getElementById('imageInput');
-      if (imageInput) imageInput.click();
     } else if (event.key === 'c') {
       chooseRandomPalette();
     }
@@ -101,7 +98,9 @@ function setupEventListeners(): void {
   window.addEventListener('unload', cleanup);
 }
 
-async function handleImageUpload(e: Event): Promise<void> {
+export async function handleImageUpload(
+  e: Event | React.MouseEvent
+): Promise<void> {
   const target = e.target as HTMLInputElement;
   const file = target.files ? target.files[0] : null;
   if (!file) return;

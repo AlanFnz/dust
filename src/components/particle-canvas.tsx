@@ -2,19 +2,22 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
+import { CONFIG } from '@/lib/config';
 import {
   initWebGLApp,
   randomizeInputs,
   togglePlayPause,
   updateBackgroundColor,
 } from '@/lib/webgl/particle-engine';
-import { CONFIG } from '@/lib/config';
 
 const ParticleCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [bgColor, setBgColor] = useState(CONFIG.backgroundColor);
   const [isPlaying, setIsPlaying] = useState(true);
+
+  const handleUploadClick = () => fileInputRef.current?.click();
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -46,7 +49,9 @@ const ParticleCanvas: React.FC = () => {
   };
 
   return (
-    <div style={{ margin: '0 auto', height: '100vh', width: '100vw' }}>
+    <div
+      style={{ margin: '5rem auto 0 auto', height: '100vh', width: '100vw' }}
+    >
       <canvas
         id='canvas'
         ref={canvasRef}
@@ -54,10 +59,15 @@ const ParticleCanvas: React.FC = () => {
           display: 'block',
           margin: '0 auto',
           height: '70vh',
-          width: '100%',
+          width: 'auto',
         }}
       />
-      <input type='file' id='imageInput' style={{ display: 'none' }} />
+      <input
+        type='file'
+        id='imageInput'
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+      />
 
       <div style={{ textAlign: 'center', marginTop: '1rem' }}>
         <label>
@@ -69,6 +79,9 @@ const ParticleCanvas: React.FC = () => {
         </button>
         <button onClick={handleRandomize} style={{ marginLeft: '1rem' }}>
           Randomize
+        </button>
+        <button onClick={handleUploadClick} style={{ marginLeft: '1rem' }}>
+          Upload image
         </button>
       </div>
     </div>
